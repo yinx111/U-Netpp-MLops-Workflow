@@ -1,5 +1,5 @@
 # U-Net++ Semantic-Segmentation on Multispectral Satellite Imagery
-This project uses open-source **NAIP** satellite imagery to build a small land-cover classification dataset and train a **U-Net++** model for segmentation. The results were evaluated on multiple land-cover classes, and **single-image inference** is supported for visualization and testing.
+This project uses a **4 bands(RGB + NIR)** open-source **NAIP** satellite imagery to build a small land-cover classification dataset and train a **U-Net++** model for segmentation. The results were evaluated on multiple land-cover classes, and **single-image inference** is supported for visualization and testing.
 
 ## Dataset 
 The data source is aerial orthophotography from the U.S. Department of Agriculture’s National Agriculture Imagery Program (NAIP), with a spatial resolution of **60 cm** and **four spectral bands (RGB + NIR)**. A total of **215 images** were produced as training data, with the dataset split in a **6:2:2 ratio** for training, validation, and testing. Each image has a size of **256 × 256 pixels**, and there are **six land-cover classes(0:background; 1:buiding; 2:road; 3:bare land; 4:forest; 5:water)** in total.

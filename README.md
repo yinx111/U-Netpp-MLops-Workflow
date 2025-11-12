@@ -5,7 +5,9 @@ This project uses a **4 bands(RGB + NIR)** open-source **NAIP** satellite imager
 The data source is aerial orthophotography from the U.S. Department of Agriculture’s National Agriculture Imagery Program (NAIP), with a spatial resolution of **60 cm** and **four spectral bands (RGB + NIR)**. A total of **215 images** were produced as training data, with the dataset split in a **6:2:2 ratio** for training, validation, and testing. Each image has a size of **256 × 256 pixels**, and there are **six land-cover classes(0:background; 1:buiding; 2:road; 3:bare land; 4:forest; 5:water)** in total.
 
 Example of Training Image and Mask
-<img width="1084" height="443" alt="eg" src="https://github.com/user-attachments/assets/65220262-e619-408f-8557-f4f82bf66e8a" />
+
+<img width="1084" height="443" alt="eg" src="https://github.com/user-attachments/assets/fccf6ac2-adb1-40c7-b86e-af24814c674d" />
+
 Dataset Structure
 ```bash
 └── dataset_split
@@ -38,7 +40,9 @@ python train.py
 ```
 
 The training curves
-<img width="2000" height="1200" alt="training_curves" src="https://github.com/user-attachments/assets/9323eaee-b44c-440f-9e4c-314b80b5c42d" />
+
+<img width="2000" height="1200" alt="training_curves" src="https://github.com/user-attachments/assets/8a2ef760-e005-4962-ae6e-70167c2cf437" />
+
 
 ## Evaluate
 The evaluation was performed using **per-class and overall metrics** on the test set.
@@ -62,7 +66,8 @@ python evaluate.py
 |5|water|0.95|0.98|0.97|0.93|
 
 ### Confusion Matrix
-<img width="1600" height="1400" alt="confusion_matrix_norm" src="https://github.com/user-attachments/assets/bde40f18-3899-4dc6-9d7e-2cd956cc944f" />
+
+<img width="1600" height="1400" alt="confusion_matrix_norm" src="https://github.com/user-attachments/assets/44af071c-02aa-4f4b-8cf2-50ce2a9d0fb3" />
 
 ## Single-image inference
 Single-image inference uses 256×256 sliding windows with **50% overlap**, performs **logit-level** fusion with a **Hann center weighting**, and applies a **global softmax→argmax** for seamless outputs. **TTA**(horizontal/vertical flips and 90° rotation) is included by inverse-transforming and accumulating logits. Finally, **a small-component reassignment** (connected regions <20 px merged to the neighborhood majority) removes holes and speckle.
@@ -73,8 +78,7 @@ python inference.py
 
 **Inference was performed on a test image with a size of 1024 × 1024 pixels.**
 
-
-<img width="1294" height="466" alt="all" src="https://github.com/user-attachments/assets/1b0d2ee7-9963-4951-9096-960a8ff1d160" />
+<img width="1294" height="466" alt="all" src="https://github.com/user-attachments/assets/2ccc97da-7f49-4489-be2d-0cde30b36ee5" />
 
 ## 📜 Data Usage and Attribution
 

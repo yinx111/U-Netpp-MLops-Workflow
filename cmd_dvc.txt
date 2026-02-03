@@ -1,0 +1,18 @@
+pip install dvc
+
+# 1) 初始化 DVC
+dvc init
+
+# 2) 让 git 记录初始化结果
+git add .dvc .gitignore
+git commit -m "Init DVC in project"
+
+# 用 DVC 管理你的数据目录（dataset_split）
+dvc add dataset_split
+
+# 设置远程&上传
+dvc remote add -d localstore E:\github\dvc_storage
+git add .dvc/config
+git commit -m "add dvc remote"
+
+dvc commit train

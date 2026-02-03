@@ -5,3 +5,4 @@ albumentations==2.0.8
 matplotlib
 tifffile
 geopandas
+PyYAML>=6.0

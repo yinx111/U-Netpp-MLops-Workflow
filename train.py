@@ -1,5 +1,8 @@
 import os
 import random
+import json
+import argparse
+import yaml
 import cv2
 from tqdm import tqdm
 import torch
@@ -13,9 +16,12 @@ from albumentations.pytorch import ToTensorV2
 import segmentation_models_pytorch as smp
 
 # Your paths
-DATA_ROOT      = "./dataset_split" 
-CHECKPOINT_DIR = "./output"
-LOG_DIR        = "./output"
+DATA_ROOT    = "./dataset_split"
+OUTPUT_DIR   = "./outputs"
+MODEL_PATH   = os.path.join(OUTPUT_DIR, "model.pth")
+METRICS_PATH = os.path.join(OUTPUT_DIR, "metrics.json")
+LOG_FILE     = os.path.join(OUTPUT_DIR, "log.txt")
+DEFAULT_CONFIG_PATH = "configs/train.yaml"
 
 #Training hyperparameters
 NUM_CLASSES   = 6             
@@ -30,6 +36,7 @@ SEED          = 42
 DEVICE        = "cuda" if torch.cuda.is_available() else "cpu"
 AMP           = True          # Mixed precision
 SAVE_BEST     = True
+IGNORE_INDEX  = -1
 
 # Choose encoder 
 ENCODER_NAME      = "resnet34"
@@ -45,7 +52,42 @@ def set_seed(seed: int):
     torch.backends.cudnn.deterministic = False
     torch.backends.cudnn.benchmark = True
 
-set_seed(SEED)
+# Config helpers
+def load_config(path: str):
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f) or {}
+
+def apply_config(cfg: dict):
+    global DATA_ROOT, OUTPUT_DIR, MODEL_PATH, METRICS_PATH, LOG_FILE
+    global NUM_CLASSES, IN_CHANNELS, IMG_SIZE, BATCH_SIZE, EPOCHS, LR, WEIGHT_DECAY, NUM_WORKERS, SEED, AMP, SAVE_BEST, IGNORE_INDEX
+    global ENCODER_NAME, ENCODER_WEIGHTS, DECODER_USE_BATCHNORM
+
+    DATA_ROOT  = cfg.get("data", {}).get("root", DATA_ROOT)
+
+    paths_cfg = cfg.get("paths", {})
+    OUTPUT_DIR   = paths_cfg.get("output_dir", OUTPUT_DIR)
+    MODEL_PATH   = paths_cfg.get("model_path", os.path.join(OUTPUT_DIR, "model.pth"))
+    METRICS_PATH = paths_cfg.get("metrics_path", os.path.join(OUTPUT_DIR, "metrics.json"))
+    LOG_FILE     = paths_cfg.get("log_file", os.path.join(OUTPUT_DIR, "log.txt"))
+
+    model_cfg = cfg.get("model", {})
+    ENCODER_NAME         = model_cfg.get("encoder_name", ENCODER_NAME)
+    ENCODER_WEIGHTS      = model_cfg.get("encoder_weights", ENCODER_WEIGHTS)
+    DECODER_USE_BATCHNORM = model_cfg.get("decoder_use_batchnorm", DECODER_USE_BATCHNORM)
+    IN_CHANNELS          = model_cfg.get("in_channels", IN_CHANNELS)
+    NUM_CLASSES          = model_cfg.get("num_classes", NUM_CLASSES)
+
+    train_cfg = cfg.get("training", {})
+    IMG_SIZE     = train_cfg.get("img_size", IMG_SIZE)
+    BATCH_SIZE   = train_cfg.get("batch_size", BATCH_SIZE)
+    EPOCHS       = train_cfg.get("epochs", EPOCHS)
+    LR           = train_cfg.get("lr", LR)
+    WEIGHT_DECAY = train_cfg.get("weight_decay", WEIGHT_DECAY)
+    NUM_WORKERS  = train_cfg.get("num_workers", NUM_WORKERS)
+    SEED         = train_cfg.get("seed", SEED)
+    AMP          = train_cfg.get("amp", AMP)
+    SAVE_BEST    = train_cfg.get("save_best", SAVE_BEST)
+    IGNORE_INDEX = train_cfg.get("ignore_index", IGNORE_INDEX)
 
 # Dataset utilities 
 IMG_PREFIX   = "tile_"
@@ -172,10 +214,15 @@ def build_model():
     return model
 
 def compute_iou(pred, target, num_classes=6, ignore_index=None):
+    if ignore_index is not None:
+        valid = target != ignore_index
+        pred = pred[valid]
+        target = target[valid]
+    if target.numel() == 0:
+        return 0.0
+
     ious = []
     for cls in range(num_classes):
-        if ignore_index is not None and cls == ignore_index:
-            continue
         pred_c = (pred == cls)
         targ_c = (target == cls)
         inter = (pred_c & targ_c).sum().item()
@@ -220,6 +267,8 @@ def eval_one_epoch(model, loader, criterion):
     n_batches = 0
     miou_sum = 0.0
     n_samples = 0
+    correct = 0
+    total = 0
     for images, masks, _ in tqdm(loader, desc="Val", leave=False):
         images = images.to(DEVICE, non_blocking=True)
         masks  = masks.to(DEVICE, non_blocking=True)
@@ -232,14 +281,28 @@ def eval_one_epoch(model, loader, criterion):
         n_batches += 1
 
         preds = torch.argmax(logits, dim=1)  # (N,H,W)
-        miou_sum += compute_iou(preds.cpu(), masks.cpu(), num_classes=NUM_CLASSES)
+        preds_cpu = preds.cpu()
+        masks_cpu = masks.cpu()
+
+        miou_sum += compute_iou(preds_cpu, masks_cpu, num_classes=NUM_CLASSES, ignore_index=IGNORE_INDEX)
+        if IGNORE_INDEX is not None:
+            valid = masks_cpu != IGNORE_INDEX
+            correct += (preds_cpu[valid] == masks_cpu[valid]).sum().item()
+            total += valid.sum().item()
+        else:
+            correct += (preds_cpu == masks_cpu).sum().item()
+            total += masks_cpu.numel()
         n_samples += 1
-    return running_loss / max(1, n_batches), miou_sum / max(1, n_samples)
+    overall_acc = correct / max(1, total)
+    return running_loss / max(1, n_batches), miou_sum / max(1, n_samples), overall_acc
 
 # Main
-def main():
-    os.makedirs(CHECKPOINT_DIR, exist_ok=True)
-    os.makedirs(LOG_DIR, exist_ok=True)
+def main(cfg_path: str = DEFAULT_CONFIG_PATH):
+    cfg = load_config(cfg_path)
+    apply_config(cfg)
+    set_seed(SEED)
+
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     train_pairs = list_pairs(os.path.join(DATA_ROOT, "train"))
     val_pairs   = list_pairs(os.path.join(DATA_ROOT, "val"))
@@ -260,18 +323,20 @@ def main():
 
     model = build_model().to(DEVICE)
 
-    criterion = nn.CrossEntropyLoss(ignore_index=-1)  
+    criterion = nn.CrossEntropyLoss(ignore_index=IGNORE_INDEX)  
     optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS)
     scaler = torch.cuda.amp.GradScaler(enabled=AMP)
 
     best_miou = -1.0
-    best_path = os.path.join(CHECKPOINT_DIR, "best_unetpp.pth")
+    best_val_loss = float("inf")
+    best_epoch = 0
+    best_path = MODEL_PATH
 
     for epoch in range(1, EPOCHS + 1):
         print(f"\n===== Epoch {epoch}/{EPOCHS} =====")
         tr_loss = train_one_epoch(model, train_loader, optimizer, scaler, criterion)
-        val_loss, val_miou = eval_one_epoch(model, val_loader, criterion)
+        val_loss, val_miou, val_oa = eval_one_epoch(model, val_loader, criterion)
         scheduler.step()
 
         print(
@@ -279,20 +344,24 @@ def main():
             f"train_loss={tr_loss:.4f} | "
             f"val_loss={val_loss:.4f} | "
             f"val_mIoU={val_miou:.4f} | "
+            f"val_OA={val_oa:.4f} | "
             f"lr={scheduler.get_last_lr()[0]:.6f}"
         )
 
         # Log and save
-        with open(os.path.join(LOG_DIR, "log.txt"), "a", encoding="utf-8") as f:
-            f.write(f"{epoch}\t{tr_loss:.6f}\t{val_loss:.6f}\t{val_miou:.6f}\n")
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(f"{epoch}\t{tr_loss:.6f}\t{val_loss:.6f}\t{val_miou:.6f}\t{val_oa:.6f}\n")
 
         if SAVE_BEST and val_miou > best_miou:
             best_miou = val_miou
+            best_val_loss = val_loss
+            best_epoch = epoch
             torch.save({
                 "epoch": epoch,
                 "model": model.state_dict(),
                 "optimizer": optimizer.state_dict(),
                 "val_mIoU": best_miou,
+                "val_loss": best_val_loss,
                 "config": {
                     "in_channels": IN_CHANNELS,
                     "num_classes": NUM_CLASSES,
@@ -301,18 +370,54 @@ def main():
             }, best_path)
             print(f"[Save] New best mIoU={best_miou:.4f} -> {best_path}")
 
-    # Save last epoch
-    final_path = os.path.join(CHECKPOINT_DIR, "last_unetpp.pth")
-    torch.save(model.state_dict(), final_path)
-    print(f"[Save] Final model -> {final_path}")
+    if not os.path.exists(best_path):
+        torch.save({
+            "epoch": EPOCHS,
+            "model": model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+            "val_mIoU": best_miou,
+            "val_loss": best_val_loss,
+            "config": {
+                "in_channels": IN_CHANNELS,
+                "num_classes": NUM_CLASSES,
+                "encoder": ENCODER_NAME
+            }
+        }, best_path)
+        print(f"[Save] Saved final model -> {best_path}")
 
     # Test set evaluation 
     print("\n[Eval] Testing best model on test set ...")
     if os.path.exists(best_path):
         ckpt = torch.load(best_path, map_location=DEVICE)
         model.load_state_dict(ckpt["model"])
-    test_loss, test_miou = eval_one_epoch(model, test_loader, criterion)
-    print(f"[Test] loss={test_loss:.4f} | mIoU={test_miou:.4f}")
+    test_loss, test_miou, test_oa = eval_one_epoch(model, test_loader, criterion)
+    print(f"[Test] loss={test_loss:.4f} | mIoU={test_miou:.4f} | OA={test_oa:.4f}")
+
+    metrics = {
+        "best_epoch": best_epoch,
+        "best_val_mIoU": best_miou,
+        "best_val_loss": best_val_loss,
+        "test_mIoU": test_miou,
+        "test_OA": test_oa,
+        "test_loss": test_loss,
+        "config": {
+            "in_channels": IN_CHANNELS,
+            "num_classes": NUM_CLASSES,
+            "encoder": ENCODER_NAME,
+            "img_size": IMG_SIZE,
+            "batch_size": BATCH_SIZE,
+            "epochs": EPOCHS,
+            "lr": LR,
+            "weight_decay": WEIGHT_DECAY,
+            "amp": AMP
+        }
+    }
+    with open(METRICS_PATH, "w", encoding="utf-8") as f:
+        json.dump(metrics, f, indent=2)
+    print(f"[Metrics] Saved to {METRICS_PATH}")
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Train Unet++ for semantic segmentation")
+    parser.add_argument("--config", default=DEFAULT_CONFIG_PATH, help="Path to YAML config file")
+    args = parser.parse_args()
+    main(args.config)

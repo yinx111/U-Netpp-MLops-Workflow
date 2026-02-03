@@ -1,0 +1,27 @@
+data:
+  root: ./dataset_split
+
+paths:
+  output_dir: ./outputs
+  model_path: outputs/model.pth
+  metrics_path: outputs/metrics.json
+  log_file: outputs/log.txt
+
+model:
+  encoder_name: resnet34
+  encoder_weights: null        # 不加载 ImageNet 预训练
+  decoder_use_batchnorm: true
+  in_channels: 4
+  num_classes: 6
+
+training:
+  img_size: 256
+  batch_size: 16
+  epochs: 100
+  lr: 0.001
+  weight_decay: 0.0001
+  num_workers: 4
+  seed: 42
+  amp: true                   # 混合精度
+  save_best: true
+  ignore_index: -1

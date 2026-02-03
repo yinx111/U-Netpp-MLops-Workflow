@@ -1,0 +1,12 @@
+stages:
+  train:
+    cmd: python train.py
+    params:
+      - configs/train.yaml
+    deps:
+      - train.py
+      - dataset_split
+    outs:
+      - outputs/model.pth
+    metrics:
+      - outputs/metrics.json

@@ -1,8 +1,12 @@
 stages:
   train:
-    cmd: python train.py
+    cmd: python train.py --config configs/train.yaml
     params:
-      - configs/train.yaml
+      - configs/train.yaml:
+          - data
+          - paths
+          - model
+          - training
     deps:
       - train.py
       - dataset_split

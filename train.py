@@ -89,6 +89,21 @@ def apply_config(cfg: dict):
     SAVE_BEST    = train_cfg.get("save_best", SAVE_BEST)
     IGNORE_INDEX = train_cfg.get("ignore_index", IGNORE_INDEX)
 
+def ensure_log_header():
+    header = "epoch\ttrain_loss\tval_loss\tval_mIoU\tval_OA\n"
+    if not os.path.exists(LOG_FILE):
+        with open(LOG_FILE, "w", encoding="utf-8") as f:
+            f.write(header)
+        return
+    with open(LOG_FILE, "r", encoding="utf-8") as f:
+        first_line = f.readline()
+        rest = f.read()
+    if not first_line.startswith("epoch"):
+        with open(LOG_FILE, "w", encoding="utf-8") as f:
+            f.write(header)
+            f.write(first_line)
+            f.write(rest)
+
 # Dataset utilities 
 IMG_PREFIX   = "tile_"
 MASK_PREFIX  = "mask_"
@@ -303,6 +318,7 @@ def main(cfg_path: str = DEFAULT_CONFIG_PATH):
     set_seed(SEED)
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+    ensure_log_header()
 
     train_pairs = list_pairs(os.path.join(DATA_ROOT, "train"))
     val_pairs   = list_pairs(os.path.join(DATA_ROOT, "val"))

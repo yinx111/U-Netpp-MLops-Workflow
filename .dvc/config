@@ -1,4 +1,6 @@
 [core]
-    remote = localstore
+    remote = gdrive_remote
 ['remote "localstore"']
     url = E:\github\dvc_storage
+['remote "gdrive_remote"']
+    url = ../1jeROx6k2KfCuId_JcByPdPth8Adf_-Wl

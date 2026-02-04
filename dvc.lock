@@ -10,8 +10,8 @@ stages:
       nfiles: 430
     - path: train.py
       hash: md5
-      md5: 349648da8a6052e3440e6edcfd57885c
-      size: 15474
+      md5: 375a2bd4e8e3da5f413babf180b05f37
+      size: 15726
     params:
       configs/train.yaml:
         data:
@@ -41,9 +41,9 @@ stages:
     outs:
     - path: outputs/metrics.json
       hash: md5
-      md5: 814df918adf5904bdd8aabd5858271f0
-      size: 435
+      md5: a76372a481c1875f5b159692508887da
+      size: 436
     - path: outputs/model.pth
       hash: md5
-      md5: 19251b89bada4da454c6320f3eb56549
+      md5: a753084bc61bb0a4860ef349c9782d33
       size: 313302725

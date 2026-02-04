@@ -7,10 +7,28 @@ stages:
           - paths
           - model
           - training
+          - mlflow
     deps:
       - train.py
       - dataset_split
+      - configs/train.yaml
     outs:
       - outputs/model.pth
     metrics:
       - outputs/metrics.json
+  evaluate:
+    cmd: python evaluate.py
+    deps:
+      - evaluate.py
+      - dataset_split
+      - outputs/model.pth
+    outs:
+      - outputs/eval
+  inference:
+    cmd: python inference.py
+    deps:
+      - inference.py
+      - outputs/model.pth
+      - test_img/area_test1.tif
+    outs:
+      - outputs/infer

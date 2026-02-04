@@ -3,6 +3,10 @@ stages:
   train:
     cmd: python train.py --config configs/train.yaml
     deps:
+    - path: configs/train.yaml
+      hash: md5
+      md5: 121f247079bdf3aa2a1c0e846655c837
+      size: 769
     - path: dataset_split
       hash: md5
       md5: 227624d5fae92ab573537d1c3139312c.dir
@@ -10,12 +14,19 @@ stages:
       nfiles: 430
     - path: train.py
       hash: md5
-      md5: 349648da8a6052e3440e6edcfd57885c
-      size: 15474
+      md5: 29755e044a6634a3d7e4abe9adbee2c6
+      size: 20105
     params:
       configs/train.yaml:
         data:
           root: ./dataset_split
+        mlflow:
+          enabled: true
+          tracking_uri:
+          experiment: u-net-workflow
+          run_name:
+          tags: {}
+          artifact_subdir: artifacts
         model:
           encoder_name: resnet34
           encoder_weights:
@@ -30,7 +41,7 @@ stages:
         training:
           img_size: 256
           batch_size: 16
-          epochs: 100
+          epochs: 10
           lr: 0.001
           weight_decay: 0.0001
           num_workers: 4
@@ -41,9 +52,52 @@ stages:
     outs:
     - path: outputs/metrics.json
       hash: md5
-      md5: 814df918adf5904bdd8aabd5858271f0
-      size: 435
+      md5: 3bb5d0cd2baef15a786dafce4c4c7096
+      size: 433
     - path: outputs/model.pth
       hash: md5
-      md5: 19251b89bada4da454c6320f3eb56549
-      size: 313302725
+      md5: dea75abc1fe9ae2affbeee11ee5628b7
+      size: 313302533
+  evaluate:
+    cmd: python evaluate.py
+    deps:
+    - path: dataset_split
+      hash: md5
+      md5: 227624d5fae92ab573537d1c3139312c.dir
+      size: 26296402
+      nfiles: 430
+    - path: evaluate.py
+      hash: md5
+      md5: 36f4929692a336afec1217142b1dc943
+      size: 11785
+    - path: outputs/model.pth
+      hash: md5
+      md5: dea75abc1fe9ae2affbeee11ee5628b7
+      size: 313302533
+    outs:
+    - path: outputs/eval
+      hash: md5
+      md5: e7e8a551f6ca8c935ffc4100cf847d17.dir
+      size: 335234
+      nfiles: 5
+  inference:
+    cmd: python inference.py
+    deps:
+    - path: inference.py
+      hash: md5
+      md5: 18d265e6f34a259d6432f0e8c142583c
+      size: 12255
+    - path: outputs/model.pth
+      hash: md5
+      md5: dea75abc1fe9ae2affbeee11ee5628b7
+      size: 313302533
+    - path: test_img/area_test1.tif
+      hash: md5
+      md5: 674cf39e0540d5779bdb337a9c625f0d
+      size: 5250810
+    outs:
+    - path: outputs/infer
+      hash: md5
+      md5: 83a0b09e1c25ff25112d18876cbdd017.dir
+      size: 384995
+      nfiles: 6

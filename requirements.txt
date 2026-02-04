@@ -8,5 +8,5 @@ geopandas
 PyYAML>=6.0
 types-PyYAML
 dvc
-dvc-s3
+dvc-s3==3.48.4
 mlflow

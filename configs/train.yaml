@@ -25,3 +25,11 @@ training:
   amp: true                   # 混合精度
   save_best: true
   ignore_index: -1
+
+mlflow:
+  enabled: false              # set to true to log to MLflow
+  tracking_uri: null          # e.g. http://localhost:5000
+  experiment: u-net-workflow
+  run_name: null
+  tags: {}
+  artifact_subdir: artifacts

@@ -14,6 +14,7 @@ from pathlib import Path
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 import segmentation_models_pytorch as smp
+import mlflow
 
 # Your paths
 DATA_ROOT    = "./dataset_split"
@@ -22,6 +23,14 @@ MODEL_PATH   = os.path.join(OUTPUT_DIR, "model.pth")
 METRICS_PATH = os.path.join(OUTPUT_DIR, "metrics.json")
 LOG_FILE     = os.path.join(OUTPUT_DIR, "log.txt")
 DEFAULT_CONFIG_PATH = "configs/train.yaml"
+
+# MLflow
+MLFLOW_ENABLED         = False
+MLFLOW_TRACKING_URI    = os.getenv("MLFLOW_TRACKING_URI")
+MLFLOW_EXPERIMENT      = os.getenv("MLFLOW_EXPERIMENT_NAME", "u-net-workflow")
+MLFLOW_RUN_NAME        = None
+MLFLOW_TAGS            = {}
+MLFLOW_ARTIFACT_SUBDIR = "artifacts"
 
 #Training hyperparameters
 NUM_CLASSES   = 6             
@@ -61,6 +70,7 @@ def apply_config(cfg: dict):
     global DATA_ROOT, OUTPUT_DIR, MODEL_PATH, METRICS_PATH, LOG_FILE
     global NUM_CLASSES, IN_CHANNELS, IMG_SIZE, BATCH_SIZE, EPOCHS, LR, WEIGHT_DECAY, NUM_WORKERS, SEED, AMP, SAVE_BEST, IGNORE_INDEX
     global ENCODER_NAME, ENCODER_WEIGHTS, DECODER_USE_BATCHNORM
+    global MLFLOW_ENABLED, MLFLOW_TRACKING_URI, MLFLOW_EXPERIMENT, MLFLOW_RUN_NAME, MLFLOW_TAGS, MLFLOW_ARTIFACT_SUBDIR
 
     DATA_ROOT  = cfg.get("data", {}).get("root", DATA_ROOT)
 
@@ -89,6 +99,14 @@ def apply_config(cfg: dict):
     SAVE_BEST    = train_cfg.get("save_best", SAVE_BEST)
     IGNORE_INDEX = train_cfg.get("ignore_index", IGNORE_INDEX)
 
+    mlflow_cfg = cfg.get("mlflow", {})
+    MLFLOW_ENABLED         = mlflow_cfg.get("enabled", MLFLOW_ENABLED)
+    MLFLOW_TRACKING_URI    = mlflow_cfg.get("tracking_uri", MLFLOW_TRACKING_URI)
+    MLFLOW_EXPERIMENT      = mlflow_cfg.get("experiment", MLFLOW_EXPERIMENT)
+    MLFLOW_RUN_NAME        = mlflow_cfg.get("run_name", MLFLOW_RUN_NAME)
+    MLFLOW_TAGS            = mlflow_cfg.get("tags", MLFLOW_TAGS) or {}
+    MLFLOW_ARTIFACT_SUBDIR = mlflow_cfg.get("artifact_subdir", MLFLOW_ARTIFACT_SUBDIR)
+
 def ensure_log_header():
     header = "epoch\ttrain_loss\tval_loss\tval_mIoU\tval_OA\n"
     if not os.path.exists(LOG_FILE):
@@ -103,6 +121,45 @@ def ensure_log_header():
             f.write(header)
             f.write(first_line)
             f.write(rest)
+
+# MLflow helpers
+def mlflow_safe(callable_fn, *args, **kwargs):
+    try:
+        return callable_fn(*args, **kwargs)
+    except Exception as e:
+        print(f"[MLflow] Warning: {e}")
+        return None
+
+def mlflow_start():
+    if not MLFLOW_ENABLED:
+        return None
+    if MLFLOW_TRACKING_URI:
+        mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    mlflow.set_experiment(MLFLOW_EXPERIMENT)
+    return mlflow.start_run(run_name=MLFLOW_RUN_NAME, tags=MLFLOW_TAGS)
+
+def mlflow_log_params_from_cfg():
+    if not MLFLOW_ENABLED:
+        return
+    params = {
+        "data.root": DATA_ROOT,
+        "model.encoder": ENCODER_NAME,
+        "model.encoder_weights": ENCODER_WEIGHTS,
+        "model.decoder_bn": DECODER_USE_BATCHNORM,
+        "model.in_channels": IN_CHANNELS,
+        "model.num_classes": NUM_CLASSES,
+        "train.img_size": IMG_SIZE,
+        "train.batch_size": BATCH_SIZE,
+        "train.epochs": EPOCHS,
+        "train.lr": LR,
+        "train.weight_decay": WEIGHT_DECAY,
+        "train.num_workers": NUM_WORKERS,
+        "train.seed": SEED,
+        "train.amp": AMP,
+        "train.save_best": SAVE_BEST,
+        "train.ignore_index": IGNORE_INDEX,
+    }
+    mlflow_safe(mlflow.log_params, params)
 
 # Dataset utilities 
 IMG_PREFIX   = "tile_"
@@ -249,6 +306,37 @@ def compute_iou(pred, target, num_classes=6, ignore_index=None):
         return 0.0
     return float(np.mean(ious))
 
+def mlflow_log_epoch(epoch, train_loss, val_loss, val_miou, val_oa):
+    if not MLFLOW_ENABLED:
+        return
+    metrics = {
+        "train_loss": train_loss,
+        "val_loss": val_loss,
+        "val_mIoU": val_miou,
+        "val_OA": val_oa,
+    }
+    mlflow_safe(mlflow.log_metrics, metrics, step=epoch)
+
+def mlflow_log_final(best_epoch, best_miou, best_val_loss, test_loss, test_miou, test_oa):
+    if not MLFLOW_ENABLED:
+        return
+    metrics = {
+        "best_epoch": best_epoch,
+        "best_val_mIoU": best_miou,
+        "best_val_loss": best_val_loss,
+        "test_loss": test_loss,
+        "test_mIoU": test_miou,
+        "test_OA": test_oa,
+    }
+    mlflow_safe(mlflow.log_metrics, metrics)
+
+def mlflow_log_artifacts(artifact_paths):
+    if not MLFLOW_ENABLED:
+        return
+    for p in artifact_paths:
+        if p and os.path.exists(p):
+            mlflow_safe(mlflow.log_artifact, p, artifact_path=MLFLOW_ARTIFACT_SUBDIR)
+
 # Train
 def train_one_epoch(model, loader, optimizer, scaler, criterion):
     model.train()
@@ -317,12 +405,22 @@ def main(cfg_path: str = DEFAULT_CONFIG_PATH):
     apply_config(cfg)
     set_seed(SEED)
 
+    active_run = mlflow_start()
+    mlflow_log_params_from_cfg()
+
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     ensure_log_header()
 
     train_pairs = list_pairs(os.path.join(DATA_ROOT, "train"))
     val_pairs   = list_pairs(os.path.join(DATA_ROOT, "val"))
     test_pairs  = list_pairs(os.path.join(DATA_ROOT, "test"))
+
+    if MLFLOW_ENABLED:
+        mlflow_safe(mlflow.log_params, {
+            "data.train_size": len(train_pairs),
+            "data.val_size": len(val_pairs),
+            "data.test_size": len(test_pairs),
+        })
 
     print(f"[Info] train: {len(train_pairs)}, val: {len(val_pairs)}, test: {len(test_pairs)}")
 
@@ -363,6 +461,8 @@ def main(cfg_path: str = DEFAULT_CONFIG_PATH):
             f"val_OA={val_oa:.4f} | "
             f"lr={scheduler.get_last_lr()[0]:.6f}"
         )
+
+        mlflow_log_epoch(epoch, tr_loss, val_loss, val_miou, val_oa)
 
         # Log and save
         with open(LOG_FILE, "a", encoding="utf-8") as f:
@@ -431,6 +531,12 @@ def main(cfg_path: str = DEFAULT_CONFIG_PATH):
     with open(METRICS_PATH, "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)
     print(f"[Metrics] Saved to {METRICS_PATH}")
+
+    mlflow_log_final(best_epoch, best_miou, best_val_loss, test_loss, test_miou, test_oa)
+    mlflow_log_artifacts([METRICS_PATH, LOG_FILE, best_path, cfg_path])
+
+    if active_run is not None:
+        mlflow.end_run()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train Unet++ for semantic segmentation")

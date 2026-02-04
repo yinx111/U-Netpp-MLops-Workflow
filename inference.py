@@ -13,10 +13,10 @@ from tqdm import tqdm
 
 import segmentation_models_pytorch as smp
 
-# Your paths
-IMG_PATH         = "./output/test_img/area_test1.tif" 
-CHECKPOINT_PATH  = "./output/best_unetpp.pth"
-OUT_DIR          = "./output/inference_out"
+# Paths aligned with DVC pipeline
+IMG_PATH         = "./test_img/area_test1.tif"
+CHECKPOINT_PATH  = "./outputs/model.pth"
+OUT_DIR          = "./outputs/infer"
 
 # Configuration 
 NUM_CLASSES  = 6             

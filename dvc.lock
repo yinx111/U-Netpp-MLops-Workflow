@@ -3,6 +3,10 @@ stages:
   train:
     cmd: python train.py --config configs/train.yaml
     deps:
+    - path: configs/train.yaml
+      hash: md5
+      md5: 121f247079bdf3aa2a1c0e846655c837
+      size: 769
     - path: dataset_split
       hash: md5
       md5: 227624d5fae92ab573537d1c3139312c.dir
@@ -10,8 +14,8 @@ stages:
       nfiles: 430
     - path: train.py
       hash: md5
-      md5: 447071833f8f5005be34ecc06b14f4fd
-      size: 19855
+      md5: 355d3b5ad594f03cf32787b2f48254c3
+      size: 20065
     params:
       configs/train.yaml:
         data:
@@ -37,7 +41,7 @@ stages:
         training:
           img_size: 256
           batch_size: 16
-          epochs: 50
+          epochs: 10
           lr: 0.001
           weight_decay: 0.0001
           num_workers: 4
@@ -48,9 +52,52 @@ stages:
     outs:
     - path: outputs/metrics.json
       hash: md5
-      md5: c3388a8e760a3fb5abfaa44ffb8fc04d
+      md5: 3bb5d0cd2baef15a786dafce4c4c7096
       size: 433
     - path: outputs/model.pth
       hash: md5
-      md5: 37f195d879e18b451cf5dc7cfeb72357
-      size: 313302725
+      md5: dea75abc1fe9ae2affbeee11ee5628b7
+      size: 313302533
+  evaluate:
+    cmd: python evaluate.py
+    deps:
+    - path: dataset_split
+      hash: md5
+      md5: 227624d5fae92ab573537d1c3139312c.dir
+      size: 26296402
+      nfiles: 430
+    - path: evaluate.py
+      hash: md5
+      md5: 6cf29ca41b158f3c482793807ab3b9cd
+      size: 11986
+    - path: outputs/model.pth
+      hash: md5
+      md5: dea75abc1fe9ae2affbeee11ee5628b7
+      size: 313302533
+    outs:
+    - path: outputs/eval
+      hash: md5
+      md5: e7e8a551f6ca8c935ffc4100cf847d17.dir
+      size: 335234
+      nfiles: 5
+  inference:
+    cmd: python inference.py
+    deps:
+    - path: inference.py
+      hash: md5
+      md5: 780d43b5e2e6b533f77cba0fcf24c2fc
+      size: 12163
+    - path: outputs/model.pth
+      hash: md5
+      md5: dea75abc1fe9ae2affbeee11ee5628b7
+      size: 313302533
+    - path: test_img/area_test1.tif
+      hash: md5
+      md5: 674cf39e0540d5779bdb337a9c625f0d
+      size: 5250810
+    outs:
+    - path: outputs/infer
+      hash: md5
+      md5: 83a0b09e1c25ff25112d18876cbdd017.dir
+      size: 384995
+      nfiles: 6

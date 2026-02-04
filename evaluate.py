@@ -10,10 +10,10 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 import segmentation_models_pytorch as smp
 
-# Your paths
-DATA_ROOT       = "./dataset_split"               
-CHECKPOINT_PATH = "./output/best_unetpp.pth"
-OUT_DIR         = "./output"                 
+# Paths aligned with DVC pipeline
+DATA_ROOT       = "./dataset_split"
+CHECKPOINT_PATH = "./outputs/model.pth"
+OUT_DIR         = "./outputs/eval"
 
 # Configuration 
 NUM_CLASSES   = 6                         

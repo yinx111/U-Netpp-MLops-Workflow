@@ -11,6 +11,7 @@ from torch.utils.data import Dataset, DataLoader
 import numpy as np
 import tifffile as tiff
 from pathlib import Path
+import subprocess
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 import segmentation_models_pytorch as smp
@@ -130,13 +131,29 @@ def mlflow_safe(callable_fn, *args, **kwargs):
         print(f"[MLflow] Warning: {e}")
         return None
 
+def get_git_commit_hash():
+    try:
+        out = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=Path(__file__).parent,
+            stderr=subprocess.DEVNULL,
+        )
+        return out.decode().strip()
+    except Exception:
+        return None
+
 def mlflow_start():
     if not MLFLOW_ENABLED:
-        return None
+        return None, None
     if MLFLOW_TRACKING_URI:
         mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment(MLFLOW_EXPERIMENT)
-    return mlflow.start_run(run_name=MLFLOW_RUN_NAME, tags=MLFLOW_TAGS)
+    commit = get_git_commit_hash()
+    tags = dict(MLFLOW_TAGS)
+    if commit:
+        tags.setdefault("git_commit", commit)
+    run = mlflow.start_run(run_name=MLFLOW_RUN_NAME, tags=tags)
+    return run, commit
 
 def mlflow_log_params_from_cfg():
     if not MLFLOW_ENABLED:
@@ -405,8 +422,10 @@ def main(cfg_path: str = DEFAULT_CONFIG_PATH):
     apply_config(cfg)
     set_seed(SEED)
 
-    active_run = mlflow_start()
+    active_run, git_commit = mlflow_start()
     mlflow_log_params_from_cfg()
+    if MLFLOW_ENABLED and git_commit:
+        mlflow_safe(mlflow.log_param, "git_commit", git_commit)
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     ensure_log_header()

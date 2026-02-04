@@ -17,7 +17,7 @@ model:
 training:
   img_size: 256
   batch_size: 16
-  epochs: 100
+  epochs: 50
   lr: 0.001
   weight_decay: 0.0001
   num_workers: 4
@@ -27,7 +27,7 @@ training:
   ignore_index: -1
 
 mlflow:
-  enabled: false              # set to true to log to MLflow
+  enabled: true              # set to true to log to MLflow
   tracking_uri: null          # e.g. http://localhost:5000
   experiment: u-net-workflow
   run_name: null

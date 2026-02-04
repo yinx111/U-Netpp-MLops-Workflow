@@ -10,12 +10,19 @@ stages:
       nfiles: 430
     - path: train.py
       hash: md5
-      md5: 375a2bd4e8e3da5f413babf180b05f37
-      size: 15726
+      md5: 447071833f8f5005be34ecc06b14f4fd
+      size: 19855
     params:
       configs/train.yaml:
         data:
           root: ./dataset_split
+        mlflow:
+          enabled: true
+          tracking_uri:
+          experiment: u-net-workflow
+          run_name:
+          tags: {}
+          artifact_subdir: artifacts
         model:
           encoder_name: resnet34
           encoder_weights:
@@ -30,7 +37,7 @@ stages:
         training:
           img_size: 256
           batch_size: 16
-          epochs: 100
+          epochs: 50
           lr: 0.001
           weight_decay: 0.0001
           num_workers: 4
@@ -41,9 +48,9 @@ stages:
     outs:
     - path: outputs/metrics.json
       hash: md5
-      md5: a76372a481c1875f5b159692508887da
-      size: 436
+      md5: c3388a8e760a3fb5abfaa44ffb8fc04d
+      size: 433
     - path: outputs/model.pth
       hash: md5
-      md5: a753084bc61bb0a4860ef349c9782d33
+      md5: 37f195d879e18b451cf5dc7cfeb72357
       size: 313302725

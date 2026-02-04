@@ -4,14 +4,13 @@ from typing import List, Tuple
 import geopandas as gpd
 import numpy as np
 import rasterio
+import segmentation_models_pytorch as smp
 from rasterio.features import shapes as rasterio_shapes
 from rasterio.windows import Window
 from scipy import ndimage as ndi
 from shapely.geometry import shape as shp_shape
 import torch
 from tqdm import tqdm
-
-import segmentation_models_pytorch as smp
 
 # Paths aligned with DVC pipeline
 IMG_PATH = "./test_img/area_test1.tif"

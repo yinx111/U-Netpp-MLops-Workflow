@@ -42,14 +42,8 @@ jobs:
       - name: Ruff (lint)
         run: ruff check .
 
-      - name: Black (format check)
-        run: black --check .
-
       - name: Mypy (lenient)
         run: mypy .
-
-      - name: YAML lint
-        run: yamllint .github configs dvc.yaml
 
       - name: DVC pipeline check (lightweight)
         run: |

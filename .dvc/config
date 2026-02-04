@@ -1,6 +1,5 @@
 [core]
-    remote = gdrive_remote
-['remote "localstore"']
-    url = E:\github\dvc_storage
-['remote "gdrive_remote"']
-    url = ../1jeROx6k2KfCuId_JcByPdPth8Adf_-Wl
+    remote = origin
+['remote "origin"']
+    url = s3://dvc
+    endpointurl = https://dagshub.com/yinx111/U-Net-MLops-Workflow.s3

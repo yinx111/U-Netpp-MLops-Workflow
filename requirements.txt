@@ -7,4 +7,5 @@ tifffile
 geopandas
 PyYAML>=6.0
 dvc
+dvc-s3
 mlflow

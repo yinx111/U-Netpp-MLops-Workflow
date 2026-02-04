@@ -5,6 +5,8 @@ import random
 import subprocess
 from pathlib import Path
 
+from typing import Dict, Any
+
 import albumentations as A
 import cv2
 import mlflow
@@ -31,7 +33,7 @@ MLFLOW_ENABLED = False
 MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI")
 MLFLOW_EXPERIMENT = os.getenv("MLFLOW_EXPERIMENT_NAME", "u-net-workflow")
 MLFLOW_RUN_NAME = None
-MLFLOW_TAGS = {}
+MLFLOW_TAGS: Dict[str, Any] = {}
 MLFLOW_ARTIFACT_SUBDIR = "artifacts"
 
 # Training hyperparameters

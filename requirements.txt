@@ -6,6 +6,7 @@ matplotlib
 tifffile
 geopandas
 PyYAML>=6.0
+types-PyYAML
 dvc
 dvc-s3
 mlflow

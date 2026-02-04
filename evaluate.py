@@ -1,14 +1,15 @@
 import os
-import numpy as np
-import tifffile as tiff
 from pathlib import Path
-import torch
-from torch.utils.data import Dataset, DataLoader
-import matplotlib.pyplot as plt
-import pandas as pd
+
 import albumentations as A
-from albumentations.pytorch import ToTensorV2
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import segmentation_models_pytorch as smp
+import tifffile as tiff
+import torch
+from albumentations.pytorch import ToTensorV2
+from torch.utils.data import DataLoader, Dataset
 
 # Paths aligned with DVC pipeline
 DATA_ROOT = "./dataset_split"
@@ -157,7 +158,6 @@ def metrics_from_confusion(cm):
     TP = np.diag(cm).astype(np.float64)
     FP = cm.sum(axis=0) - TP
     FN = cm.sum(axis=1) - TP
-    TN = cm.sum() - (TP + FP + FN)
 
     with np.errstate(divide="ignore", invalid="ignore"):
         precision = TP / (TP + FP)

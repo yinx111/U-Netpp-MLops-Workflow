@@ -1,21 +1,22 @@
+import argparse
+import json
 import os
 import random
-import json
-import argparse
-import yaml
+import subprocess
+from pathlib import Path
+
+import albumentations as A
 import cv2
-from tqdm import tqdm
+import mlflow
+import numpy as np
+import segmentation_models_pytorch as smp
+import tifffile as tiff
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
-import numpy as np
-import tifffile as tiff
-from pathlib import Path
-import subprocess
-import albumentations as A
+import yaml
 from albumentations.pytorch import ToTensorV2
-import segmentation_models_pytorch as smp
-import mlflow
+from torch.utils.data import DataLoader, Dataset
+from tqdm import tqdm
 
 # Your paths
 DATA_ROOT = "./dataset_split"

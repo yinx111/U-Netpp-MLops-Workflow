@@ -11,7 +11,6 @@ conda activate smp
 pip install torch==1.10.1+cu113 torchvision==0.11.2+cu113 torchaudio==0.10.1 -f https://download.pytorch.org/whl/torch_stable.html
 pip install segmentation-models-pytorch
 pip install -r requirements.txt
-
 ```
 
 ## Set up dvc remote
@@ -44,13 +43,13 @@ You can get your Personal Access Tokens from your DagsHub setting page
 dev repro --force
 ```
 
-Monitor the training process using MLflow UI
+From DagsHub, you can access MLflow UI and monitor the training process 
 
 ![alt text](mlflow.png)
 
 ## CI
-The CI pipeline is triggered in two cases:
-·Pushes to the main or master branch.
+The CI pipeline is triggered in two cases:<br>
+·Pushes to the main or master branch.<br>
 ·Pull requests targeting the main or master branch.
 
 ![alt text](CI.png)

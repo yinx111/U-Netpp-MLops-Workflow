@@ -1,2 +1,4 @@
 dataset_split/
 mlruns/
+outputs/
+__pycache__/

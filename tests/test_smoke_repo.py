@@ -8,6 +8,7 @@ def test_repo_layout_exists():
         "requirements.txt",
         "dvc.yaml",
         "configs",
+        "dataset_mini",
         "test_img",
         "outputs",
     ]

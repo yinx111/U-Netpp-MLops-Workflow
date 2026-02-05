@@ -21,7 +21,7 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 # Your paths
-DATA_ROOT = "./dataset_split"
+DATA_ROOT = os.getenv("DATA_ROOT", "./dataset_split")
 OUTPUT_DIR = "./outputs"
 MODEL_PATH = os.path.join(OUTPUT_DIR, "model.pth")
 METRICS_PATH = os.path.join(OUTPUT_DIR, "metrics.json")
@@ -46,7 +46,9 @@ LR = 1e-3
 WEIGHT_DECAY = 1e-4
 NUM_WORKERS = 4
 SEED = 42
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+# Respect env override for CPU-only runs (e.g., CI)
+FORCE_CPU = os.getenv("FORCE_CPU", "0").lower() in {"1", "true", "yes"}
+DEVICE = "cpu" if FORCE_CPU else ("cuda" if torch.cuda.is_available() else "cpu")
 AMP = True  # Mixed precision
 SAVE_BEST = True
 IGNORE_INDEX = -1
@@ -62,9 +64,10 @@ def set_seed(seed: int):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = False
-    torch.backends.cudnn.benchmark = True
+    if torch.cuda.is_available() and not FORCE_CPU:
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = False
+        torch.backends.cudnn.benchmark = True
 
 
 # Config helpers
@@ -451,6 +454,9 @@ def eval_one_epoch(model, loader, criterion):
 def main(cfg_path: str = DEFAULT_CONFIG_PATH):
     cfg = load_config(cfg_path)
     apply_config(cfg)
+    if FORCE_CPU:
+        # Ensure CPU-only runs don't attempt AMP
+        globals()["AMP"] = False
     set_seed(SEED)
 
     active_run, git_commit = mlflow_start()
@@ -481,19 +487,28 @@ def main(cfg_path: str = DEFAULT_CONFIG_PATH):
     val_ds = RSDataset(val_pairs, transforms=get_val_augs(IMG_SIZE))
     test_ds = RSDataset(test_pairs, transforms=get_val_augs(IMG_SIZE))
 
+    pin_mem = DEVICE == "cuda"
     train_loader = DataLoader(
         train_ds,
         batch_size=BATCH_SIZE,
         shuffle=True,
         num_workers=NUM_WORKERS,
-        pin_memory=True,
+        pin_memory=pin_mem,
         drop_last=True,
     )
     val_loader = DataLoader(
-        val_ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True
+        val_ds,
+        batch_size=BATCH_SIZE,
+        shuffle=False,
+        num_workers=NUM_WORKERS,
+        pin_memory=pin_mem,
     )
     test_loader = DataLoader(
-        test_ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True
+        test_ds,
+        batch_size=BATCH_SIZE,
+        shuffle=False,
+        num_workers=NUM_WORKERS,
+        pin_memory=pin_mem,
     )
 
     model = build_model().to(DEVICE)

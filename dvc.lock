@@ -14,8 +14,8 @@ stages:
       nfiles: 430
     - path: train.py
       hash: md5
-      md5: 29755e044a6634a3d7e4abe9adbee2c6
-      size: 20105
+      md5: 968e80fecda2c55098b03afe80544431
+      size: 20172
     params:
       configs/train.yaml:
         data:
@@ -68,8 +68,8 @@ stages:
       nfiles: 430
     - path: evaluate.py
       hash: md5
-      md5: 36f4929692a336afec1217142b1dc943
-      size: 11785
+      md5: 1aef93ef98f282ef9952fc7ce02dd57a
+      size: 11806
     - path: outputs/model.pth
       hash: md5
       md5: dea75abc1fe9ae2affbeee11ee5628b7
@@ -85,8 +85,8 @@ stages:
     deps:
     - path: inference.py
       hash: md5
-      md5: 18d265e6f34a259d6432f0e8c142583c
-      size: 12255
+      md5: 0c56e723dcff3c7cfc8c0007e608aa95
+      size: 12267
     - path: outputs/model.pth
       hash: md5
       md5: dea75abc1fe9ae2affbeee11ee5628b7

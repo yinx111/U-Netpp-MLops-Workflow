@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main, master, dev]
+    branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
 
@@ -55,7 +55,7 @@ jobs:
 
   dvc-mini:
     runs-on: ubuntu-latest
-    needs: tests
+    needs: lint-and-typecheck
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -87,4 +87,4 @@ jobs:
           AMP: "false"
           MLFLOW_ENABLED: "false"
         run: |
-          dvc repro --force
+          dvc repro --force evaluate inference

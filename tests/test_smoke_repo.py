@@ -2,9 +2,9 @@ from pathlib import Path
 
 def test_repo_layout_exists():
     must_exist = [
-        "train.py",
-        "inference.py",
-        "evaluate.py",
+        "scripts/train.py",
+        "scripts/inference.py",
+        "scripts/evaluate.py",
         "requirements.txt",
         "dvc.yaml",
         "configs",

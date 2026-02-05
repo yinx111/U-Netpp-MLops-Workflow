@@ -11,6 +11,10 @@ import torch
 from albumentations.pytorch import ToTensorV2
 from torch.utils.data import DataLoader, Dataset
 
+from env_loader import load_dotenv
+
+load_dotenv()
+
 # Paths aligned with DVC pipeline (overridable for CI via env)
 DATA_ROOT = os.getenv("DATA_ROOT", "./dataset_split")
 CHECKPOINT_PATH = "./outputs/model.pth"

@@ -12,6 +12,10 @@ from shapely.geometry import shape as shp_shape
 import torch
 from tqdm import tqdm
 
+from env_loader import load_dotenv
+
+load_dotenv()
+
 # Paths aligned with DVC pipeline
 IMG_PATH = "./test_img/area_test1.tif"
 CHECKPOINT_PATH = "./outputs/model.pth"

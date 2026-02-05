@@ -33,3 +33,9 @@ mlflow:
   run_name: null
   tags: {}
   artifact_subdir: artifacts
+  model_name: unetpp-seg            # set to enable registry (e.g. unetpp-seg)
+  model_stage: Staging           # optional (e.g. Staging)
+
+gate:
+  min_miou: 0.3
+  min_oa: 0.5

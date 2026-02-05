@@ -2,3 +2,5 @@ dataset_split/
 mlruns/
 outputs/
 __pycache__/
+.env
+/dataset_split

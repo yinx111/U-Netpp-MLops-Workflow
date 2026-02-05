@@ -3,6 +3,7 @@ import json
 import os
 import random
 import subprocess
+from datetime import datetime
 from pathlib import Path
 
 from typing import Dict, Any
@@ -19,6 +20,10 @@ import yaml
 from albumentations.pytorch import ToTensorV2
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
+
+from env_loader import load_dotenv
+
+load_dotenv()
 
 # Your paths
 DATA_ROOT = os.getenv("DATA_ROOT", "./dataset_split")
@@ -182,7 +187,17 @@ def mlflow_start():
         return None, None
     if MLFLOW_TRACKING_URI:
         mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-    mlflow.set_experiment(MLFLOW_EXPERIMENT)
+    try:
+        mlflow.set_experiment(MLFLOW_EXPERIMENT)
+    except Exception as e:
+        # Handle case where experiment was soft-deleted on the tracking server
+        msg = str(e).lower()
+        if "deleted experiment" in msg:
+            fallback = f"{MLFLOW_EXPERIMENT}-restored-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+            print(f"[MLflow] Experiment '{MLFLOW_EXPERIMENT}' is deleted, switching to '{fallback}'")
+            mlflow.set_experiment(fallback)
+        else:
+            raise
     commit = get_git_commit_hash()
     tags = dict(MLFLOW_TAGS)
     if commit:
@@ -406,6 +421,15 @@ def mlflow_log_artifacts(artifact_paths):
             mlflow_safe(mlflow.log_artifact, p, artifact_path=MLFLOW_ARTIFACT_SUBDIR)
 
 
+def mlflow_log_model(model):
+    if not MLFLOW_ENABLED:
+        return None
+    import mlflow.pytorch as mlflow_pytorch
+
+    info = mlflow_pytorch.log_model(model, artifact_path="model")
+    return getattr(info, "model_uri", None)
+
+
 # Train
 def train_one_epoch(model, loader, optimizer, scaler, criterion):
     model.train()
@@ -614,6 +638,9 @@ def main(cfg_path: str = DEFAULT_CONFIG_PATH):
     test_loss, test_miou, test_oa = eval_one_epoch(model, test_loader, criterion)
     print(f"[Test] loss={test_loss:.4f} | mIoU={test_miou:.4f} | OA={test_oa:.4f}")
 
+    # Log best model to MLflow if enabled
+    mlflow_model_uri = mlflow_log_model(model)
+
     metrics = {
         "best_epoch": best_epoch,
         "best_val_mIoU": best_miou,
@@ -633,6 +660,10 @@ def main(cfg_path: str = DEFAULT_CONFIG_PATH):
             "amp": AMP,
         },
     }
+    if active_run is not None:
+        metrics["mlflow_run_id"] = active_run.info.run_id
+    if mlflow_model_uri is not None:
+        metrics["mlflow_model_uri"] = mlflow_model_uri
     with open(METRICS_PATH, "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)
     print(f"[Metrics] Saved to {METRICS_PATH}")

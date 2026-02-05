@@ -76,6 +76,10 @@ jobs:
           rm -rf dataset_split
           cp -r dataset_mini dataset_split
 
+      - name: Create empty .env for DVC deps
+        run: |
+          touch .env
+
       - name: Run DVC pipeline on CPU with mini data
         env:
           FORCE_CPU: "1"

@@ -36,7 +36,7 @@ The model U-Net++ from **SMP (segmentation_models.pytorch)**
 https://github.com/qubvel-org/segmentation_models.pytorch was used for training.
 
 ```bash
-python train.py
+python scripts/train.py
 ```
 
 The training curves
@@ -48,7 +48,7 @@ The training curves
 The evaluation was performed using **per-class and overall metrics** on the test set.
 
 ```bash
-python evaluate.py
+python scripts/evaluate.py
 ```
 ### Overall Metrics
 |overall_accuracy|mIoU|mF1|kappa|
@@ -73,7 +73,7 @@ python evaluate.py
 Single-image inference uses 256×256 sliding windows with **50% overlap**, performs **logit-level** fusion with a **Hann center weighting**, and applies a **global softmax→argmax** for seamless outputs. **TTA**(horizontal/vertical flips and 90° rotation) is included by inverse-transforming and accumulating logits. Finally, **a small-component reassignment** (connected regions <20 px merged to the neighborhood majority) removes holes and speckle.
 
 ```bash
-python inference.py
+python scripts/inference.py
 ```
 
 **Inference was performed on a test image with a size of 1024 × 1024 pixels.**

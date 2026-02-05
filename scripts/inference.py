@@ -12,6 +12,10 @@ from shapely.geometry import shape as shp_shape
 import torch
 from tqdm import tqdm
 
+from env_loader import load_dotenv
+
+load_dotenv()
+
 # Paths aligned with DVC pipeline
 IMG_PATH = "./test_img/area_test1.tif"
 CHECKPOINT_PATH = "./outputs/model.pth"
@@ -21,7 +25,8 @@ OUT_DIR = "./outputs/infer"
 NUM_CLASSES = 6
 IN_CHANNELS = 4
 ENCODER_NAME = "resnet34"
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+FORCE_CPU = os.getenv("FORCE_CPU", "0").lower() in {"1", "true", "yes"}
+DEVICE = "cpu" if FORCE_CPU else ("cuda" if torch.cuda.is_available() else "cpu")
 
 # Sliding window params
 TILE = 256

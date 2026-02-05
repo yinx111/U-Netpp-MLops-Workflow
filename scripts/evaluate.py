@@ -11,8 +11,12 @@ import torch
 from albumentations.pytorch import ToTensorV2
 from torch.utils.data import DataLoader, Dataset
 
-# Paths aligned with DVC pipeline
-DATA_ROOT = "./dataset_split"
+from env_loader import load_dotenv
+
+load_dotenv()
+
+# Paths aligned with DVC pipeline (overridable for CI via env)
+DATA_ROOT = os.getenv("DATA_ROOT", "./dataset_split")
 CHECKPOINT_PATH = "./outputs/model.pth"
 OUT_DIR = "./outputs/eval"
 
@@ -20,9 +24,10 @@ OUT_DIR = "./outputs/eval"
 NUM_CLASSES = 6
 IN_CHANNELS = 4
 IMG_SIZE = 256
-BATCH_SIZE = 16
-NUM_WORKERS = 4
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+BATCH_SIZE = int(os.getenv("EVAL_BATCH_SIZE", os.getenv("BATCH_SIZE", "16")))
+NUM_WORKERS = int(os.getenv("EVAL_NUM_WORKERS", os.getenv("NUM_WORKERS", "4")))
+FORCE_CPU = os.getenv("FORCE_CPU", "0").lower() in {"1", "true", "yes"}
+DEVICE = "cpu" if FORCE_CPU else ("cuda" if torch.cuda.is_available() else "cpu")
 ENCODER_NAME = "resnet34"
 EXCLUDE_BG_IN_MACRO = True
 
@@ -290,8 +295,13 @@ def evaluate():
         )
 
     ds = RSDataset(test_pairs, transforms=get_eval_augs(IMG_SIZE))
+    pin_mem = DEVICE == "cuda"
     dl = DataLoader(
-        ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True
+        ds,
+        batch_size=BATCH_SIZE,
+        shuffle=False,
+        num_workers=NUM_WORKERS,
+        pin_memory=pin_mem,
     )
 
     # Build model and load weights

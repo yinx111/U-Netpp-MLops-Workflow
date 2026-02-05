@@ -1,6 +1,6 @@
 stages:
   train:
-    cmd: python train.py --config configs/train.yaml
+    cmd: python scripts/train.py --config configs/train.yaml
     params:
       - configs/train.yaml:
           - data
@@ -8,8 +8,11 @@ stages:
           - model
           - training
           - mlflow
+          - gate
     deps:
-      - train.py
+      - scripts/train.py
+      - scripts/env_loader.py
+      - .env
       - dataset_split
       - configs/train.yaml
     outs:
@@ -17,18 +20,44 @@ stages:
     metrics:
       - outputs/metrics.json
   evaluate:
-    cmd: python evaluate.py
+    cmd: python scripts/evaluate.py
     deps:
-      - evaluate.py
+      - scripts/evaluate.py
+      - scripts/env_loader.py
+      - .env
       - dataset_split
       - outputs/model.pth
     outs:
       - outputs/eval
   inference:
-    cmd: python inference.py
+    cmd: python scripts/inference.py
     deps:
-      - inference.py
+      - scripts/inference.py
+      - scripts/env_loader.py
+      - .env
       - outputs/model.pth
       - test_img/area_test1.tif
     outs:
       - outputs/infer
+  gate:
+    cmd: python scripts/check_metrics.py --metrics outputs/metrics.json --config configs/train.yaml --stamp outputs/gate.ok
+    deps:
+      - scripts/check_metrics.py
+      - scripts/env_loader.py
+      - .env
+      - outputs/metrics.json
+      - configs/train.yaml
+    outs:
+      - outputs/gate.ok
+  register:
+    cmd: python scripts/register_model.py --metrics outputs/metrics.json --config configs/train.yaml --stamp outputs/register.ok
+    deps:
+      - scripts/register_model.py
+      - scripts/env_loader.py
+      - .env
+      - outputs/metrics.json
+      - outputs/model.pth
+      - outputs/gate.ok
+      - configs/train.yaml
+    outs:
+      - outputs/register.ok

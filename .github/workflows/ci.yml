@@ -82,11 +82,9 @@ jobs:
           CUDA_VISIBLE_DEVICES: ""
           DATA_ROOT: "./dataset_split"
           BATCH_SIZE: "2"
+          EPOCHS: "1"
           NUM_WORKERS: "0"
+          AMP: "false"
+          MLFLOW_ENABLED: "false"
         run: |
-          dvc repro \
-            -S configs/train.yaml:training.batch_size=2 \
-            -S configs/train.yaml:training.epochs=1 \
-            -S configs/train.yaml:training.num_workers=0 \
-            -S configs/train.yaml:training.amp=false \
-            -S configs/train.yaml:mlflow.enabled=false
+          dvc repro --force

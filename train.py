@@ -118,6 +118,28 @@ def apply_config(cfg: dict):
     MLFLOW_ARTIFACT_SUBDIR = mlflow_cfg.get("artifact_subdir", MLFLOW_ARTIFACT_SUBDIR)
 
 
+def apply_env_overrides():
+    global DATA_ROOT, BATCH_SIZE, EPOCHS, NUM_WORKERS, AMP, MLFLOW_ENABLED
+    env_data_root = os.getenv("DATA_ROOT")
+    if env_data_root:
+        DATA_ROOT = env_data_root
+    env_batch = os.getenv("BATCH_SIZE")
+    if env_batch:
+        BATCH_SIZE = int(env_batch)
+    env_epochs = os.getenv("EPOCHS")
+    if env_epochs:
+        EPOCHS = int(env_epochs)
+    env_workers = os.getenv("NUM_WORKERS")
+    if env_workers:
+        NUM_WORKERS = int(env_workers)
+    env_amp = os.getenv("AMP")
+    if env_amp is not None:
+        AMP = env_amp.lower() in {"1", "true", "yes"}
+    env_mlflow = os.getenv("MLFLOW_ENABLED")
+    if env_mlflow is not None:
+        MLFLOW_ENABLED = env_mlflow.lower() in {"1", "true", "yes"}
+
+
 def ensure_log_header():
     header = "epoch\ttrain_loss\tval_loss\tval_mIoU\tval_OA\n"
     if not os.path.exists(LOG_FILE):
@@ -454,6 +476,7 @@ def eval_one_epoch(model, loader, criterion):
 def main(cfg_path: str = DEFAULT_CONFIG_PATH):
     cfg = load_config(cfg_path)
     apply_config(cfg)
+    apply_env_overrides()
     if FORCE_CPU:
         # Ensure CPU-only runs don't attempt AMP
         globals()["AMP"] = False

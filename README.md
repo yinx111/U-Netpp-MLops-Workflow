@@ -1,4 +1,4 @@
-# UNet++ MLOps for Remote-Sensing Segmentation
+# An MLOps workflow of Satellite Imagery Segmentation
 
 This repository provides an MLOps workflow around the project https://github.com/yinx111/UNetpp-Semantic-Segmentation-on-Multispectral-Satellite-Imagery.  
 It manages datasets with **DVC** and uses **DVC stages** to automate the end-to-end pipeline, including **training, evaluation, quality gate checks, and model registration**. Training runs and experiment tracking are handled with **MLflow**. **Github Actions CI workflows** cover **lint-and-type-checking, smoke tests, and full DVC pipeline execution**. Both DVC and MLflow are integrated and hosted on **DagsHub**.

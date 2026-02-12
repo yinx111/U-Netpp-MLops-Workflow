@@ -1,84 +1,63 @@
-# UNet++ Semantic Segmentation on Multispectral Satellite Imagery
-This project uses a **4 bands(RGB + NIR)** open-source **NAIP** satellite imagery to build a small land-cover classification dataset and train a **U-Net++** model for segmentation. The results were evaluated on multiple land-cover classes, and **single-image inference** is supported for visualization and testing.
+# An MLOps workflow of Satellite Imagery Segmentation
 
-## Dataset 
-The data source is aerial orthophotography from the U.S. Department of Agriculture’s National Agriculture Imagery Program (NAIP), with a spatial resolution of **60 cm** and **four spectral bands (RGB + NIR)**. A total of **215 images** were produced as training data, with the dataset split in a **6:2:2 ratio** for training, validation, and testing. Each image has a size of **256 × 256 pixels**, and there are **six land-cover classes(0:background; 1:buiding; 2:road; 3:bare land; 4:forest; 5:water)** in total.
+This repository provides an MLOps workflow around the project https://github.com/yinx111/UNetpp-Semantic-Segmentation-on-Multispectral-Satellite-Imagery.  
+It manages datasets with **DVC** and uses **DVC stages** to automate the end-to-end pipeline, including **training, evaluation, quality gate checks, and model registration**. Training runs and experiment tracking are handled with **MLflow**. **Github Actions CI workflows** cover **lint-and-type-checking, smoke tests, and full DVC pipeline execution**. Both DVC and MLflow are integrated and hosted on **DagsHub**.
 
-Example of Training Image and Mask
+## Install dependencies
 
-<img width="1084" height="443" alt="eg" src="https://github.com/user-attachments/assets/fccf6ac2-adb1-40c7-b86e-af24814c674d" />
-
-Dataset Structure
-```bash
-└── dataset_split
-    ├── train
-    |   ├── img
-    │   ├── mask
-    └── val
-    |   ├── img
-    │   ├── mask
-    └── test
-        ├── img
-        ├── mask
 ```
-## Installation
-The training was conducted on a **Windows 10** equipped with **CUDA 11.3**.
-```bash
 conda create --name smp python=3.9 -y 
-conda activate mmrotate
+conda activate smp
 pip install torch==1.10.1+cu113 torchvision==0.11.2+cu113 torchaudio==0.10.1 -f https://download.pytorch.org/whl/torch_stable.html
 pip install segmentation-models-pytorch
 pip install -r requirements.txt
 ```
 
-## Train
-The model U-Net++ from **SMP (segmentation_models.pytorch)** 
-https://github.com/qubvel-org/segmentation_models.pytorch was used for training.
+## Set up DVC remote
 
-```bash
-python scripts/train.py
+```
+dvc remote add origin s3://dvc
+dvc remote modify origin endpointurl {your DagsHub repository URL}.s3
+dvc remote modify origin --local access_key_id {your_token}
+dvc remote modify origin --local secret_access_key {your_token}
+```
+You can get your DVC remote token from your DagsHub repository page.
+
+![alt text](<dvc remote setting ok.png>)
+
+## Configure MLflow
+
+Create a \.env` file in the project root:`
+```
+MLFLOW_TRACKING_URI={your DagsHub repository URL}.mlflow
+MLFLOW_TRACKING_USERNAME={your user name}
+MLFLOW_TRACKING_PASSWORD={your access token}
+```
+You can get your Personal Access Tokens from your DagsHub setting page.
+
+![alt text](<mlflow remote setting.png>)
+
+## Run
+
+```
+dvc repro --force
 ```
 
-The training curves
+From DagsHub, you can access MLflow UI and monitor the training process.
 
-<img width="2000" height="1200" alt="training_curves" src="https://github.com/user-attachments/assets/8a2ef760-e005-4962-ae6e-70167c2cf437" />
+![alt text](mlflow.png)
+
+## CI
+The CI pipeline is triggered in two cases:
+- Pushes to the `main` or `master` branch.
+- Pull requests targeting the `main` or `master` branch.
 
 
-## Evaluate
-The evaluation was performed using **per-class and overall metrics** on the test set.
+![alt text](CI.png)
 
-```bash
-python scripts/evaluate.py
-```
-### Overall Metrics
-|overall_accuracy|mIoU|mF1|kappa|
-|:----------------:|:----:|:----:|:----:|
-|0.90|0.78|0.88|0.84|
+## Notes
+This project is still under development. In the future, **data preprocessing** will be integrated into the pipeline, and I plan to build a simple web app and add **continuous delivery (CD)** capabilities.
 
-### Per-class Metrics
-|class_id|class_name|precision|recall|f1|iou|
-|:----:|:--------:|:----:|:----:|:----:|:----:|
-|0|background|0.93|0.88|0.90|0.82|
-|1|building|0.81|0.78|0.79|0.66|
-|2|road|0.85|0.82|0.83|0.71|
-|3|bare land|0.84|0.96|0.90|0.81|
-|4|forest|0.89|0.89|0.89|0.80|
-|5|water|0.95|0.98|0.97|0.93|
-
-### Confusion Matrix
-
-<img width="1600" height="1400" alt="confusion_matrix_norm" src="https://github.com/user-attachments/assets/44af071c-02aa-4f4b-8cf2-50ce2a9d0fb3" />
-
-## Single-image inference
-Single-image inference uses 256×256 sliding windows with **50% overlap**, performs **logit-level** fusion with a **Hann center weighting**, and applies a **global softmax→argmax** for seamless outputs. **TTA**(horizontal/vertical flips and 90° rotation) is included by inverse-transforming and accumulating logits. Finally, **a small-component reassignment** (connected regions <20 px merged to the neighborhood majority) removes holes and speckle.
-
-```bash
-python scripts/inference.py
-```
-
-**Inference was performed on a test image with a size of 1024 × 1024 pixels.**
-
-<img width="1294" height="466" alt="all" src="https://github.com/user-attachments/assets/2ccc97da-7f49-4489-be2d-0cde30b36ee5" />
 
 ## Web App + Cloudflare Tunnel (Docker Compose)
 This repo includes:

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>遥感分割推理 WebApp</title>
+  <style>
+    body { font-family: sans-serif; max-width: 860px; margin: 32px auto; line-height: 1.5; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; }
+    code { background: #f6f6f6; padding: 2px 5px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h2>U-Net++ 单图推理（CPU）</h2>
+  <div class="card">
+    <p>上传单张影像（支持 .tif/.tiff/.png），服务会调用 <code>scripts/inference.py</code> 并强制 CPU 推理。</p>
+    {{MESSAGE_BLOCK}}
+    <form action="/infer" method="post" enctype="multipart/form-data">
+      <input type="file" name="image" required />
+      <button type="submit">开始推理并下载结果</button>
+    </form>
+    <p>结果将打包为 zip，包含推理产物（如 <code>pred_class.tif</code> 与矢量文件）。</p>
+  </div>
+</body>
+</html>

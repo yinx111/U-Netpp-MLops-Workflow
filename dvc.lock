@@ -3,10 +3,6 @@ stages:
   train:
     cmd: python scripts/train.py --config configs/train.yaml
     deps:
-    - path: .env
-      hash: md5
-      md5: db54829f20f31d6c074356c9438d2065
-      size: 538
     - path: configs/train.yaml
       hash: md5
       md5: 6c3dd2867828d9f9c3e5214ab6e658ac
@@ -74,10 +70,6 @@ stages:
   evaluate:
     cmd: python scripts/evaluate.py
     deps:
-    - path: .env
-      hash: md5
-      md5: db54829f20f31d6c074356c9438d2065
-      size: 538
     - path: dataset_split
       hash: md5
       md5: 5c79dc42e46057b1b3b9807bc00ab8b6.dir
@@ -104,10 +96,6 @@ stages:
   inference:
     cmd: python scripts/inference.py
     deps:
-    - path: .env
-      hash: md5
-      md5: db54829f20f31d6c074356c9438d2065
-      size: 538
     - path: outputs/model.pth
       hash: md5
       md5: 31babb14cd3f4120fcbaba16c5e2d4ff
@@ -134,10 +122,6 @@ stages:
     cmd: python scripts/check_metrics.py --metrics outputs/metrics.json --config
       configs/train.yaml --stamp outputs/gate.ok
     deps:
-    - path: .env
-      hash: md5
-      md5: db54829f20f31d6c074356c9438d2065
-      size: 538
     - path: configs/train.yaml
       hash: md5
       md5: 6c3dd2867828d9f9c3e5214ab6e658ac
@@ -163,10 +147,6 @@ stages:
     cmd: python scripts/register_model.py --metrics outputs/metrics.json 
       --config configs/train.yaml --stamp outputs/register.ok
     deps:
-    - path: .env
-      hash: md5
-      md5: db54829f20f31d6c074356c9438d2065
-      size: 538
     - path: configs/train.yaml
       hash: md5
       md5: 6c3dd2867828d9f9c3e5214ab6e658ac

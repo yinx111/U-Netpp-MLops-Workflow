@@ -1,0 +1,139 @@
+name: CD App
+
+on:
+  push:
+    branches: [dev, main, master]
+  workflow_dispatch:
+    inputs:
+      target_env:
+        description: "Deployment environment"
+        required: true
+        type: choice
+        options:
+          - staging
+      image_tag:
+        description: "Optional image tag to deploy (default: current commit tag)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: cd-app-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image_ref: ${{ steps.meta.outputs.image_ref }}
+      image_repo: ${{ steps.meta.outputs.image_repo }}
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve image coordinates
+        id: meta
+        run: |
+          set -euo pipefail
+          repo_lc="$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
+          image_repo="ghcr.io/${repo_lc}/app"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.image_tag }}" ]]; then
+            image_tag="${{ inputs.image_tag }}"
+          else
+            image_tag="sha-${GITHUB_SHA::12}"
+          fi
+          echo "image_repo=${image_repo}" >> "${GITHUB_OUTPUT}"
+          echo "image_tag=${image_tag}" >> "${GITHUB_OUTPUT}"
+          echo "image_ref=${image_repo}:${image_tag}" >> "${GITHUB_OUTPUT}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: app/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ steps.meta.outputs.image_ref }}
+            ${{ steps.meta.outputs.image_repo }}:latest
+
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.target_env == 'staging')
+    environment: staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Copy compose file to host
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.STAGING_SSH_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          source: "deploy/docker-compose.cd.yml"
+          target: "${{ secrets.STAGING_DEPLOY_PATH }}"
+
+      - name: Deploy on staging
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.STAGING_SSH_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script_stop: true
+          command_timeout: 30m
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.STAGING_DEPLOY_PATH }}"
+
+            echo "${{ secrets.STAGING_GHCR_TOKEN }}" | docker login ghcr.io -u "${{ secrets.STAGING_GHCR_USERNAME }}" --password-stdin
+
+            prev_image="$(docker inspect --format='{{.Config.Image}}' unetpp-app 2>/dev/null || true)"
+            export APP_IMAGE="${{ needs.build-and-push.outputs.image_ref }}"
+            export APP_HOST="${{ vars.APP_HOST }}"
+            export APP_PORT="${{ vars.APP_PORT }}"
+            export MAX_UPLOAD_MB="${{ vars.MAX_UPLOAD_MB }}"
+            export INFERENCE_TIMEOUT_SECONDS="${{ vars.INFERENCE_TIMEOUT_SECONDS }}"
+            export CHECKPOINT_PATH="${{ vars.CHECKPOINT_PATH }}"
+            export FORCE_CPU="${{ vars.FORCE_CPU }}"
+            export CUDA_VISIBLE_DEVICES="${{ vars.CUDA_VISIBLE_DEVICES }}"
+            export CLOUDFLARED_TOKEN="${{ secrets.CLOUDFLARED_TOKEN }}"
+
+            docker compose -f deploy/docker-compose.cd.yml pull app
+            docker compose -f deploy/docker-compose.cd.yml up -d app cloudflared
+
+            healthy=""
+            for _ in $(seq 1 24); do
+              healthy="$(docker inspect --format='{{.State.Health.Status}}' unetpp-app 2>/dev/null || true)"
+              if [ "${healthy}" = "healthy" ]; then
+                break
+              fi
+              sleep 5
+            done
+
+            if [ "${healthy}" != "healthy" ]; then
+              echo "Staging deploy failed health check."
+              if [ -n "${prev_image}" ]; then
+                echo "Rolling back to previous image: ${prev_image}"
+                export APP_IMAGE="${prev_image}"
+                docker compose -f deploy/docker-compose.cd.yml up -d app cloudflared
+              fi
+              exit 1
+            fi
+
+            docker image prune -f

@@ -86,7 +86,7 @@ jobs:
           host: ${{ secrets.STAGING_SSH_HOST }}
           username: ${{ secrets.STAGING_SSH_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
-          source: "deploy/docker-compose.cd.yml"
+          source: "deploy/docker-compose.deploy.yml"
           target: "${{ secrets.STAGING_DEPLOY_PATH }}"
 
       - name: Deploy on staging
@@ -114,8 +114,8 @@ jobs:
             export CUDA_VISIBLE_DEVICES="${{ vars.CUDA_VISIBLE_DEVICES }}"
             export CLOUDFLARED_TOKEN="${{ secrets.CLOUDFLARED_TOKEN }}"
 
-            docker compose -f deploy/docker-compose.cd.yml pull app
-            docker compose -f deploy/docker-compose.cd.yml up -d app cloudflared
+            docker compose -f deploy/docker-compose.deploy.yml pull app
+            docker compose -f deploy/docker-compose.deploy.yml up -d app cloudflared
 
             healthy=""
             for _ in $(seq 1 24); do
@@ -131,7 +131,7 @@ jobs:
               if [ -n "${prev_image}" ]; then
                 echo "Rolling back to previous image: ${prev_image}"
                 export APP_IMAGE="${prev_image}"
-                docker compose -f deploy/docker-compose.cd.yml up -d app cloudflared
+                docker compose -f deploy/docker-compose.deploy.yml up -d app cloudflared
               fi
               exit 1
             fi

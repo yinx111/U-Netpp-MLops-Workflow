@@ -109,15 +109,5 @@ In Cloudflare Zero Trust:
 2. Add a Public Hostname and point service to `http://app:8000`.
 3. Ensure DNS record is proxied by Cloudflare.
 
-## 📜 Data Usage and Attribution
-
-This dataset was created using open-source satellite imagery from the **U.S. Department of Agriculture National Agriculture Imagery Program (NAIP)**.
-
-If you use this dataset in your research or project, please cite or acknowledge:
-
-> Source imagery: USDA NAIP  
-> Processed and labeled dataset: yinx111 (2025), https://github.com/yinx111/U-Net-Semantic-Segmentation-on-Multispectral-RGB-NIR-Imagery
-
-**And the dataset will be continuously expanded with additional land-cover categories and samples in future updates.**
 
 # test

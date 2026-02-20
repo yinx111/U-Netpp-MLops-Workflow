@@ -89,7 +89,7 @@ jobs:
       - name: Install DVC (S3 remote)
         run: |
           python -m pip install --upgrade pip
-          pip install "dvc[s3]==3.60.1"
+          pip install "dvc[s3]==3.66.1"
 
       - name: Pull checkpoint from DVC
         id: model

@@ -80,13 +80,53 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Copy compose file to host
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+          cache: "pip"
+
+      - name: Install DVC (S3 remote)
+        run: |
+          python -m pip install --upgrade pip
+          pip install "dvc[s3]==3.60.1"
+
+      - name: Pull checkpoint from DVC
+        id: model
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.STAGING_DVC_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.STAGING_DVC_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ vars.DVC_AWS_REGION }}
+          MODEL_DVC_PATH: ${{ vars.MODEL_DVC_PATH }}
+          EXPECTED_MODEL_SHA256: ${{ vars.MODEL_SHA256 }}
+        run: |
+          set -euo pipefail
+          model_dvc_path="${MODEL_DVC_PATH:-outputs/model.pth}"
+
+          dvc pull "${model_dvc_path}"
+          test -s "${model_dvc_path}"
+
+          model_sha256="$(sha256sum "${model_dvc_path}" | awk '{print $1}')"
+          if [ -n "${EXPECTED_MODEL_SHA256:-}" ] && [ "${model_sha256}" != "${EXPECTED_MODEL_SHA256}" ]; then
+            echo "Model sha256 mismatch: expected=${EXPECTED_MODEL_SHA256} actual=${model_sha256}"
+            exit 1
+          fi
+
+          model_subdir="models/${GITHUB_SHA}"
+          model_host_path="deploy/${model_subdir}/model.pth"
+          mkdir -p "$(dirname "${model_host_path}")"
+          cp "${model_dvc_path}" "${model_host_path}"
+
+          echo "model_sha256=${model_sha256}" >> "${GITHUB_OUTPUT}"
+          echo "model_subdir=${model_subdir}" >> "${GITHUB_OUTPUT}"
+
+      - name: Copy deploy assets to host
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.STAGING_SSH_HOST }}
           username: ${{ secrets.STAGING_SSH_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
-          source: "deploy/docker-compose.deploy.yml"
+          source: "deploy/docker-compose.deploy.yml,deploy/${{ steps.model.outputs.model_subdir }}/model.pth"
           target: "${{ secrets.STAGING_DEPLOY_PATH }}"
 
       - name: Deploy on staging
@@ -104,12 +144,24 @@ jobs:
             echo "${{ secrets.STAGING_GHCR_TOKEN }}" | docker login ghcr.io -u "${{ secrets.STAGING_GHCR_USERNAME }}" --password-stdin
 
             prev_image="$(docker inspect --format='{{.Config.Image}}' unetpp-app 2>/dev/null || true)"
+            prev_checkpoint="$(docker inspect --format='{{range .Config.Env}}{{println .}}{{end}}' unetpp-app 2>/dev/null | awk -F= '$1=="CHECKPOINT_PATH" {print substr($0, index($0, "=") + 1)}' | tail -n1 || true)"
+            model_subdir="${{ steps.model.outputs.model_subdir }}"
+            model_host_path="deploy/${model_subdir}/model.pth"
+            model_sha_expected="${{ steps.model.outputs.model_sha256 }}"
+
+            test -s "${model_host_path}"
+            model_sha_actual="$(sha256sum "${model_host_path}" | awk '{print $1}')"
+            if [ "${model_sha_actual}" != "${model_sha_expected}" ]; then
+              echo "Model sha256 mismatch on host: expected=${model_sha_expected} actual=${model_sha_actual}"
+              exit 1
+            fi
+
             export APP_IMAGE="${{ needs.build-and-push.outputs.image_ref }}"
             export APP_HOST="${{ vars.APP_HOST }}"
             export APP_PORT="${{ vars.APP_PORT }}"
             export MAX_UPLOAD_MB="${{ vars.MAX_UPLOAD_MB }}"
             export INFERENCE_TIMEOUT_SECONDS="${{ vars.INFERENCE_TIMEOUT_SECONDS }}"
-            export CHECKPOINT_PATH="${{ vars.CHECKPOINT_PATH }}"
+            export CHECKPOINT_PATH="/workspace/${model_subdir}/model.pth"
             export FORCE_CPU="${{ vars.FORCE_CPU }}"
             export CUDA_VISIBLE_DEVICES="${{ vars.CUDA_VISIBLE_DEVICES }}"
             export CLOUDFLARED_TOKEN="${{ secrets.CLOUDFLARED_TOKEN }}"
@@ -131,6 +183,9 @@ jobs:
               if [ -n "${prev_image}" ]; then
                 echo "Rolling back to previous image: ${prev_image}"
                 export APP_IMAGE="${prev_image}"
+                if [ -n "${prev_checkpoint}" ]; then
+                  export CHECKPOINT_PATH="${prev_checkpoint}"
+                fi
                 docker compose -f deploy/docker-compose.deploy.yml up -d app cloudflared
               fi
               exit 1

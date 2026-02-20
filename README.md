@@ -51,6 +51,8 @@ Create one environment:
 - `STAGING_DEPLOY_PATH` (absolute path on remote host)
 - `STAGING_GHCR_USERNAME`
 - `STAGING_GHCR_TOKEN` (PAT with `read:packages`)
+- `STAGING_DVC_ACCESS_KEY_ID`
+- `STAGING_DVC_SECRET_ACCESS_KEY`
 - `CLOUDFLARED_TOKEN`
 
 ### Optional environment variables
@@ -60,12 +62,18 @@ Set in the `staging` GitHub environment `Variables`:
 - `APP_PORT`
 - `MAX_UPLOAD_MB`
 - `INFERENCE_TIMEOUT_SECONDS`
-- `CHECKPOINT_PATH`
 - `FORCE_CPU`
 - `CUDA_VISIBLE_DEVICES`
+- `MODEL_DVC_PATH` (default: `outputs/model.pth`)
+- `MODEL_SHA256` (optional integrity pin)
+- `DVC_AWS_REGION` (optional, default `us-east-1`)
+
+Notes:
+- CD pulls checkpoint from DVC and uploads it to remote host path `deploy/models/<git_sha>/model.pth`.
+- CD sets `CHECKPOINT_PATH=/workspace/models/<git_sha>/model.pth` automatically.
 
 Deployment compose file used by CD:
-- `deploy/docker-compose.cd.yml`
+- `deploy/docker-compose.deploy.yml`
 
 ## 📜 Data Usage and Attribution
 

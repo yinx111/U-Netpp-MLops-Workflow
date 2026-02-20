@@ -8,14 +8,14 @@ services:
       APP_PORT: ${APP_PORT:-8000}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-200}
       INFERENCE_TIMEOUT_SECONDS: ${INFERENCE_TIMEOUT_SECONDS:-3600}
-      CHECKPOINT_PATH: ${CHECKPOINT_PATH:-/workspace/outputs/model.pth}
+      CHECKPOINT_PATH: ${CHECKPOINT_PATH:-/workspace/models/model.pth}
       PYTHONUNBUFFERED: "1"
       FORCE_CPU: ${FORCE_CPU:-1}
       CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES:-}
     ports:
       - "${APP_PORT:-8000}:8000"
     volumes:
-      - ./outputs:/workspace/outputs
+      - ./models:/workspace/models:ro
       - ./webapp_runs:/workspace/webapp_runs
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')"]

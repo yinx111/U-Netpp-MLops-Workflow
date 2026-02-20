@@ -95,6 +95,13 @@ def _run_inference(input_path: Path, out_dir: Path) -> subprocess.CompletedProce
     )
 
 
+def _resolve_checkpoint_path() -> Path:
+    checkpoint_env = os.getenv("CHECKPOINT_PATH")
+    if checkpoint_env:
+        return Path(checkpoint_env)
+    return DEFAULT_MODEL_PATH
+
+
 @app.get("/", response_class=HTMLResponse)
 def index() -> HTMLResponse:
     return HTMLResponse(_render_index())
@@ -102,7 +109,34 @@ def index() -> HTMLResponse:
 
 @app.get("/healthz")
 def healthz() -> JSONResponse:
-    return JSONResponse({"status": "ok"})
+    checkpoint_path = _resolve_checkpoint_path()
+    if not checkpoint_path.exists():
+        return JSONResponse(
+            {
+                "status": "error",
+                "reason": "checkpoint_missing",
+                "checkpoint_path": str(checkpoint_path),
+            },
+            status_code=503,
+        )
+
+    try:
+        if checkpoint_path.stat().st_size <= 0:
+            raise RuntimeError("checkpoint is empty")
+        with checkpoint_path.open("rb") as f:
+            f.read(16)
+    except Exception as e:
+        return JSONResponse(
+            {
+                "status": "error",
+                "reason": "checkpoint_unreadable",
+                "checkpoint_path": str(checkpoint_path),
+                "detail": str(e),
+            },
+            status_code=503,
+        )
+
+    return JSONResponse({"status": "ok", "checkpoint_path": str(checkpoint_path)})
 
 
 @app.post("/preview")
